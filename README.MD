@@ -13,3 +13,10 @@ This bot is designed for my dungeons and dragons group. The idea is to simplify 
   * User should be notified when they have enough cash to buy wishlist item. Notification should only happen once.
   * Should wishlist items be displayed along with balance when balance queried?
 * "help" query should display the commands. "help \<command\>" should display more detail about the command.
+
+## ToDo:
+* Implement the above
+* Decide on datasource:
+  * Google Docs?
+  * Postgres?
+  * DynamoDB?
