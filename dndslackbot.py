@@ -17,6 +17,8 @@ class loot:
         *BALANCE*
         Prints out the amount of money available for use by the player.
         '''
+        return _balance
+    def _balance(user):
         #money = funds[(funds.name == user)]['money']
         money = 1
         gp = money // 100
@@ -24,12 +26,20 @@ class loot:
         cp = money % 10
         return "{:,}gp  {}sp  {}cp".format(gp,sp,cp)
     def purchase(command,channel,*args,**kwargs):
+        """
+        *PURCHASE*
+        Allows a user to purchase an item and have the funds deducted from their balance.
+        """
         pass
     def sell(command,channel,*args,**kwargs):
+        """
+        *SELL*
+        Allows a user to sell an item and have the funds added to their balance.
+        """
         pass
     def help(command,channel,*args,**kwargs):
         """
-        Testing the docstring.
+        Kinda redundant to call help on help, don't you think?
         """
         split = command.lower().split()
         com = split[0]
