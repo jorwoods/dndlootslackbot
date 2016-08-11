@@ -12,12 +12,6 @@ members = {}
 #funds = pd.DataFrame
 
 class loot:
-    def balance(command,channel,*args,**kwargs):
-        '''
-        *BALANCE*
-        Prints out the amount of money available for use by the player.
-        '''
-        return _balance
     def _balance(user):
         #money = funds[(funds.name == user)]['money']
         money = 1
@@ -25,6 +19,12 @@ class loot:
         sp = (money % 100) // 10
         cp = money % 10
         return "{:,}gp  {}sp  {}cp".format(gp,sp,cp)
+    def balance(command,channel,*args,**kwargs):
+        '''
+        *BALANCE*
+        Prints out the amount of money available for use by the player.
+        '''
+        return _balance
     def purchase(command,channel,*args,**kwargs):
         """
         *PURCHASE*
