@@ -1,5 +1,6 @@
 from slackclient import SlackClient
 import settings, time, pandas as pd
+from contextlib import contextmanager
 
 bot_name = settings.slack['bot_name']
 slack_client = SlackClient(settings.slack['token'])
@@ -13,18 +14,24 @@ im_list = {}
 members = {}
 #funds = pd.DataFrame
 
+
+@contextmanager
+def retrieve():
+    try:
+        store = pd.HDFStore('data.h5')
+        yield store
+    finally:
+        store.close()
+
+
 class loot:
     def _balance(user):
         """
         *_balance*
         Internal helper method to calculate balance.
         """
-        #money = funds[(funds.name == user)]['money']
-        money = 123456789
-        gp = money // 100
-        sp = (money % 100) // 10
-        cp = money % 10
-        return "Balance for *{}*\n{:,}gp  {}sp  {}cp".format(user,gp,sp,cp)
+        money = data.get_balance(user)
+        return "Balance for *{}*\n{:,}gp  {}sp  {}cp".format(user,money[gp],money[sp],money[cp])
     def balance(command,channel,member,*args,**kwargs):
         '''
         *BALANCE*
@@ -47,13 +54,15 @@ class loot:
         *PURCHASE*
         Allows a user to purchase an item and have the funds deducted from their balance.
         """
-        pass
+        item = command.split(sep=None,maxsplit=1)[1]
+        return loot._transaction('purchase',user,item)
     def sell(command,channel,user,*args,**kwargs):
         """
         *SELL*
         Allows a user to sell an item and have the funds added to their balance.
         """
-        pass
+        item = command.split(sep=None,maxsplit=1)[1]
+        return loot._transaction('sale',user,item)
     def help(command,channel,user,*args,**kwargs):
         """
         Kinda redundant to call help on help, don't you think?
@@ -63,14 +72,90 @@ class loot:
         response = ""
         if (len(split) > 1):
             if(hasattr(loot,split[1])):
-                return "Help for the {} command:\n{}".format(split[1],getattr(loot,split[1]).__doc__)
+                return "Help for the *{}* command:\n{}".format(split[1],getattr(loot,split[1]).__doc__)
             else:
                 response = "*{}* is not a valid command.\n".format(split[1])
         response += ', '.join([c for c in dir(loot) if not c.startswith("_")])
         response += "\nType *help* followed by one of the commands above to get more info."
         return response
+    def _transaction(transaction,user=None,item=None,id=None,*args,**kwargs):
+        '''
+        *Transaction*
+        Internal helper function designed to ask the DM for approval on purchases and sales.
+        '''
+        if((transaction == 'purchase') or (transaction == 'sale')):
+            id = data.add_transaction(user,item)
+            message = """
+            *APPROVAL NEEDED*
+            {} wants to {}: {}. Type @lootbot: *approve* or *deny* {}
+            """.format(user,transaction,item,id)
+            c = ''.join([k for k,v in members if v == DM])
+            slack_client.api_call("chat.postMessage", channel=c,
+                            text=message, as_user=True)
+            return '{} of {} pending approval.'.format(transaction, item)
+        elif((transaction == 'approved') or transaction == 'denied'):
+            user,t,item = getattr(data,transaction)(id)
+            message = """
+            {} *{}* your {} of *{}*.
+            """.format(DM,transaction,t,item)
+            c = ''.join([k for k,v in members if v == user])
+            slack_client.api_call("chat.postMessage", channel=c,
+                            text=message, as_user=True)
+            return "You {} {}'s {} of {}.".format(transaction,user,t,item)
+
+        return None
     def hi(command,channel,user,*args,**kwargs):
         return "Hi, {}!".format(user)
+
+class data:
+    def itemlist(user):
+        items = []
+        with retrieve() as f:
+            df = f['player_items']
+            filtered = df[df['player'] == user]
+            filtered['item'].map(lambda x: items.append(x))
+        return ', '.join(items)
+    def get_balance(user):
+        coins = {}
+        with retrieve() as f:
+            df = f['balances']
+            filtered = df[df['player'] == user]
+            group = filtered[['amount','coin']].groupby('coin').sum()
+            for i in group.index:
+                coins[i] = group['amount'][i]
+        return coins
+
+    def add_transaction(user,item):
+        with retrieve() as f:
+            df = f['transactions']
+            i = len(df)
+            df.loc[i] = [user,item,'pending']
+            f['transactions'] = df
+        return i
+    def approved(id):
+        item = ""
+        user = ""
+        t = ""
+        with retrieve() as f:
+            df = f['transactions']
+            df['status'][id] = 'approved'
+            item = df['item'][id]
+            user = df['player'][id]
+            t = df['transaction'][id]
+        return user,t,item
+
+    def denied(id):
+        item = ""
+        user = ""
+        t = ""
+        with retrieve() as f:
+            df = f['transactions']
+            df['status'][id] = 'denied'
+            item = df['item'][id]
+            user = df['player'][id]
+            t = df['transaction'][id]
+        return user,t,item
+    
 
 def handle_command(command, channel, user):
     """
@@ -83,7 +168,7 @@ def handle_command(command, channel, user):
         com = command.lower().split()[0]
     if (len(user) > 0):
         mem = members[user]
-    if(channel not in im_list.keys() and (com.startswith("hi") or com.startswith("help"))):
+    if(com.startswith("hi") or com.startswith("help")):
         response = getattr(loot,com)(command,channel,user)
     elif (channel not in im_list.keys()):
         response = "Not sure what you want, {}. Try sending me a direct message!".format(mem)
