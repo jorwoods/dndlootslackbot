@@ -12,7 +12,6 @@ lootmaster = settings.dnd["lootmaster"]
 AT_BOT = "<@" + BOT_ID + ">:"
 im_list = {}
 members = {}
-#funds = pd.DataFrame
 
 
 @contextmanager
@@ -31,7 +30,51 @@ class loot:
         Internal helper method to calculate balance.
         """
         money = data.get_balance(user)
-        return "Balance for *{}*\n{:,}gp  {}sp  {}cp".format(user,money[gp],money[sp],money[cp])
+        return "Balance for *{}*\n{:,}gp  {:,}sp  {:,}cp".format(user,money[gp],money[sp],money[cp])
+    def alter(command,channel,member):
+        """
+        *ALTER*
+        _*NOT YET IMPLEMENTED*_
+        Allows the DM or lootmaster to directly adjust balance up or down
+        """
+        if(members[channel] != DM):
+            return "*HEY! STOP THAT! YOU'RE NOT THE DM!*"
+        pass
+    def approve(command,channel,member):
+        """
+        *APPROVE*
+        Allows the DM to approve a transaction:
+        *@lootbot: approve* _id_
+
+        Optionally, the DM can override the amount with:
+        *@lootbot: approve* _id_ _amount_ 
+
+        If the DM chooses, he can also override the default denomination of gp with:
+        *@lootbot: approve* _id_ _amount_ _denomination_
+        
+        """
+        if(members[channel] != DM):
+            return "*HEY! STOP THAT! YOU'RE NOT THE DM!*"
+        com = command.split()
+        if (len(com) < 2):
+            return "ID of transaction required."
+        elif( len(com) == 3):
+            return loot._transaction('approved',id=com[1],amount=com[2])            
+        elif(len(com)>3):
+            return loot._transaction("approved",id=com[1],amount=com[2],coin=com[3])
+        return loot._transaction('approved',id=com[1])
+    def deny(command,channel,member):
+        """
+        *DENY*
+        Allows the DM to deny a transaction:
+        *@lootbot: deny* _id_
+        """
+        if(members[channel] != DM):
+            return "*HEY! STOP THAT! YOU'RE NOT THE DM!*"
+        com = command.split()
+        if (len(com) < 2):
+            return "ID of transaction required."
+        return loot._transaction('denied',id=com[1])
     def balance(command,channel,member,*args,**kwargs):
         '''
         *BALANCE*
@@ -55,14 +98,17 @@ class loot:
         Allows a user to purchase an item and have the funds deducted from their balance.
         """
         item = command.split(sep=None,maxsplit=1)[1]
-        return loot._transaction('purchase',user,item)
+        amount, coin = data.item_metadata(item)
+        return loot._transaction('purchase',user=user,item=item,amount=amount,coin=coin)
     def sell(command,channel,user,*args,**kwargs):
         """
         *SELL*
         Allows a user to sell an item and have the funds added to their balance.
         """
         item = command.split(sep=None,maxsplit=1)[1]
-        return loot._transaction('sale',user,item)
+        amount, coin = data.item_metadata(item)
+        amount = amount * 0.5
+        return loot._transaction('sell',user=user,item=item,amount=amount,coin=coin)
     def help(command,channel,user,*args,**kwargs):
         """
         Kinda redundant to call help on help, don't you think?
@@ -78,30 +124,34 @@ class loot:
         response += ', '.join([c for c in dir(loot) if not c.startswith("_")])
         response += "\nType *help* followed by one of the commands above to get more info."
         return response
-    def _transaction(transaction,user=None,item=None,id=None,*args,**kwargs):
+    def _transaction(transaction,user=None,item=None,id=None,amount=None,coin='gp',*args,**kwargs):
         '''
         *Transaction*
         Internal helper function designed to ask the DM for approval on purchases and sales.
         '''
-        if((transaction == 'purchase') or (transaction == 'sale')):
+        if((transaction == 'purchase') or (transaction == 'sell')):
             id = data.add_transaction(user,item)
             message = """
             *APPROVAL NEEDED*
-            {} wants to {}: {}. Type @lootbot: *approve* or *deny* {}
-            """.format(user,transaction,item,id)
+            {} wants to {}: {} for {:,}{}. Type @lootbot: *approve* or *deny* {}
+            """.format(user,transaction,item,id,amount,coin)
             c = ''.join([k for k,v in members if v == DM])
             slack_client.api_call("chat.postMessage", channel=c,
                             text=message, as_user=True)
             return '{} of {} pending approval.'.format(transaction, item)
         elif((transaction == 'approved') or transaction == 'denied'):
-            user,t,item = getattr(data,transaction)(id)
+            user,t,item = getattr(data,transaction)(id,amount)
             message = """
-            {} *{}* your {} of *{}*.
-            """.format(DM,transaction,t,item)
+            {} *{}* your {} of *{}* for {:,}{}.
+            =========
+            *Itemlist:* {}
+            =========
+            {}
+            """.format(DM,transaction,t,item,amount,coin,data.itemlist(user),loot._balance(user))
             c = ''.join([k for k,v in members if v == user])
             slack_client.api_call("chat.postMessage", channel=c,
                             text=message, as_user=True)
-            return "You {} {}'s {} of {}.".format(transaction,user,t,item)
+            return "You {} {}'s {} of {} for {:,}{}.".format(transaction,user,t,item,amount,coin)
 
         return None
     def hi(command,channel,user,*args,**kwargs):
@@ -115,6 +165,15 @@ class data:
             filtered = df[df['player'] == user]
             filtered['item'].map(lambda x: items.append(x))
         return ', '.join(items)
+    def item_metadata(item):
+        amount = None
+        coin = ""
+        with retrieve() as f:
+            df = f['itemlist']
+            amount = df[df['item'] == item]['amount']
+            coin = df[df['item'] == item]['coin']
+        return amount, coin
+
     def get_balance(user):
         coins = {}
         with retrieve() as f:
@@ -125,32 +184,51 @@ class data:
                 coins[i] = group['amount'][i]
         return coins
 
-    def add_transaction(user,item):
+    def add_transaction(user,item,amount):
         with retrieve() as f:
             df = f['transactions']
             i = len(df)
-            df.loc[i] = [user,item,'pending']
+            df.loc[i] = [user,item,amount,'pending',pd.datetime.now()]
             f['transactions'] = df
         return i
-    def approved(id):
+
+    def approved(id,amount):
         item = ""
         user = ""
         t = ""
+        
+        # Flag the item as approved.
         with retrieve() as f:
             df = f['transactions']
             df['status'][id] = 'approved'
+            df['DM_timestamp'][id] = pd.datetime.now()
             item = df['item'][id]
             user = df['player'][id]
             t = df['transaction'][id]
+            if(not amount):
+                amount = df['amount'][id]
+        # Debit the amount from the player's account
+        with retrieve() as f:
+            df = f['balances']
+            # TODO: determine format of balance "table"
+            df.loc[len(df)] = [user,amount,coin,pd.datetime.now()]
+            f['balances'] = df
+        # Add the item to the player's itemlist
+        with retrieve() as f:
+            df = f['player_items']
+            # TODO: determine format of player_items "table"
+            df.loc[len(df)] = [user,item,pd.datetime.now()]
+            f['player_items'] = df
         return user,t,item
 
-    def denied(id):
+    def denied(id,amount):
         item = ""
         user = ""
         t = ""
         with retrieve() as f:
             df = f['transactions']
             df['status'][id] = 'denied'
+            df['DM_timestamp'][id] = pd.datetime.now()
             item = df['item'][id]
             user = df['player'][id]
             t = df['transaction'][id]
@@ -208,6 +286,7 @@ if __name__ == "__main__":
         for im in ims['ims']:
             im_list[im['id']] = im['user']
         print("LootBot connected and running!")
+        #print("MEMBERS:\n{}\n\nIM_LIST:\n{}".format(members,im_list))
         while True:
             command, channel,user = parse_slack_output(slack_client.rtm_read())
             if command and channel:
