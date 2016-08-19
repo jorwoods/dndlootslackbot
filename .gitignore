@@ -1,4 +1,6 @@
 settings.py
+data.h5
+itemlist.xlsx
 .vscode
 __pycache__
 __pycache__/

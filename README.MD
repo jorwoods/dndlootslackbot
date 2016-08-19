@@ -18,10 +18,6 @@ This bot is designed for my dungeons and dragons group. The idea is to simplify 
 
 ## ToDo:
 * Implement the above
-* Decide on datasource:
-  * Google Docs?
-  * Postgres?
-  * DynamoDB?
 =======
 * DM and loot master should be able to add/remove items/funds without impacting existing balances. Others should not.
 * Add option for DM approval of purchases/sales. This will need a threshold variable, settable by DM.
@@ -38,11 +34,3 @@ This bot is designed for my dungeons and dragons group. The idea is to simplify 
 ## Design decisions
 * Data source for now will likely be HDF5. A project at this small scale will not benefit meaningfully from a database back end.
 * Interactions with slack should be asynchronous to not block other requests from occurring.
-
----
-## Open questions
-* How should the bot check slack for messages?
-  * Is there a polling frequency that should be used? 
-    * If so, is it possible to poll more frequently while requests are incoming, but less frequently while no requests?
-* Should players be able to see each others balances/item lists, or should it only work through direct message? 
->>>>>>> 2d3c158f6898fa7042dd5014c613706171c30034

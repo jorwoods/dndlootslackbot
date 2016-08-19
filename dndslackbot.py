@@ -31,7 +31,14 @@ class loot:
         """
         money = data.get_balance(user)
         return "Balance for *{}*\n{:,}gp  {:,}sp  {:,}cp".format(user,money[gp],money[sp],money[cp])
-    def alter(command,channel,member):
+    def add_item(command,channel,member):
+        """
+        *ADD_ITEM*
+        _*NOT YET IMPLEMENTED*_
+        Allows the DM or lootmaster to directly add an item to a player.
+        """
+        return "This isn't implemented yet."
+    def alter_funds(command,channel,member):
         """
         *ALTER*
         _*NOT YET IMPLEMENTED*_
@@ -39,7 +46,7 @@ class loot:
         """
         if(members[channel] != DM):
             return "*HEY! STOP THAT! YOU'RE NOT THE DM!*"
-        pass
+        return "This isn't implemented yet."
     def approve(command,channel,member):
         """
         *APPROVE*
@@ -167,7 +174,7 @@ class data:
         return ', '.join(items)
     def item_metadata(item):
         amount = None
-        coin = ""
+        coin = None
         with retrieve() as f:
             df = f['itemlist']
             amount = df[df['item'] == item]['amount']
@@ -186,9 +193,10 @@ class data:
 
     def add_transaction(user,item,amount):
         with retrieve() as f:
+            # TODO: Add amount retrieval from item_metadata.
             df = f['transactions']
             i = len(df)
-            df.loc[i] = [user,item,amount,'pending',pd.datetime.now()]
+            df.loc[i] = [user,item,amount,coin,'pending',pd.datetime.now()]
             f['transactions'] = df
         return i
 
