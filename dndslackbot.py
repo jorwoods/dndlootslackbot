@@ -9,7 +9,7 @@ BOT_ID = settings.slack['BOT_ID']
 
 DM = settings.dnd["DM"]
 lootmaster = settings.dnd["lootmaster"]
-AT_BOT = "<@" + BOT_ID + ">:"
+AT_BOT = "<@" + BOT_ID + ">"
 im_list = {}
 members = {}
 
@@ -30,7 +30,13 @@ class loot:
         Internal helper method to calculate balance.
         """
         money = data.get_balance(user)
-        return "Balance for *{}*\n{:,}gp  {:,}sp  {:,}cp".format(user,money[gp],money[sp],money[cp])
+        s = "Balance for *{}*\n{:,}gp  {:,}sp  {:,}cp".format(user,
+            int(money['gp']),int(money['sp']),int(money['cp']))
+        g = money['gp']
+        g += money['cp'] // 100
+        g += money['sp'] // 10
+        s += "\nEffective value {:,}gp".format(int(g))
+        return s
     def add_item(command,channel,member):
         """
         *ADD_ITEM*

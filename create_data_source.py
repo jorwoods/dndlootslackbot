@@ -9,6 +9,12 @@ if(not os.path.exists("data.h5") ):
             'coin','status','timestamp','DM_timestamp'])
         f['player_items'] = pd.DataFrame(columns=['player','item','timestamp'])
         f['balances'] = pd.DataFrame(columns=['player','amount','coin','timestamp'])
-        f['itemlist'] = pd.DataFrame(columns=['item',
-            'amount','coin','rarity','consumable'])
+
+        # Load and prep the itemlist
+        df = pd.read_excel("itemlist.xlsx")
+        df['item'] = df['Name']
+        df['rarity'] = df['Rarity']
+        df['attuned'] = df['attunement?']
+        f['itemlist'] = df[['item','amount','coin','rarity','page','attuned']]
+        del(df)
     pass
