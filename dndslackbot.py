@@ -200,6 +200,7 @@ class data:
     def add_transaction(user,item,amount):
         with retrieve() as f:
             # TODO: Add amount retrieval from item_metadata.
+            # TODO: Add exception handling for if item doesn't exist in itemlist
             df = f['transactions']
             i = len(df)
             df.loc[i] = [user,item,amount,coin,'pending',pd.datetime.now()]
