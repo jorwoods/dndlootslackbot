@@ -48,6 +48,8 @@ class loot:
         _*NOT YET IMPLEMENTED*_
         Allows the DM or lootmaster to directly add an item to a player.
         """
+        if(members[channel] != DM):
+            return "*HEY! STOP THAT! YOU'RE NOT THE DM!*"
         return "This isn't implemented yet."
 
     def alter_funds(command,channel,member):
@@ -161,15 +163,18 @@ class loot:
         Internal helper function designed to ask the DM for approval on purchases and sales.
         '''
         if((transaction == 'purchase') or (transaction == 'sell')):
-            id = data.add_transaction(user,item)
-            message = """
-            *APPROVAL NEEDED*
-            {} wants to {}: {} for {:,}{}. Type `@lootbot approve` or `@lootbot deny` {} to approve or deny the transaction.
-            """.format(user,transaction,item,id,amount,coin)
-            c = ''.join([k for k,v in members if v == DM])
-            slack_client.api_call("chat.postMessage", channel=c,
-                            text=message, as_user=True)
-            return '{} of {} pending approval.'.format(transaction, item)
+            id = data.add_transaction(user,item,amount,coin)
+            if(id):
+                message = """
+                *APPROVAL NEEDED*
+                {} wants to {}: {} for {:,}{}. Type `@lootbot approve` or `@lootbot deny` {} to approve or deny the transaction.
+                """.format(user,transaction,item,id,amount,coin)
+                c = ''.join([k for k,v in members if v == DM])
+                slack_client.api_call("chat.postMessage", channel=c,
+                                text=message, as_user=True)
+                return '{} of {} pending approval.'.format(transaction, item)
+            else:
+                return '*{}* has no stated or discovered value.'.format(item)
         elif((transaction == 'approved') or transaction == 'denied'):
             user,t,item = getattr(data,transaction)(id,amount)
             message = """
@@ -196,6 +201,7 @@ class data:
             filtered = df[df['player'] == user]
             filtered['item'].map(lambda x: items.append(x))
         return ', '.join(items)
+
     def item_metadata(item):
         amount = None
         coin = None
@@ -215,12 +221,17 @@ class data:
                 coins[i] = int(group['amount'][i])
         return coins
 
-    def add_transaction(user,item,amount):
+    def add_transaction(user,item,amount,coin):
         with retrieve() as f:
-            # TODO: Add amount retrieval from item_metadata.
-            # TODO: Add exception handling for if item doesn't exist in itemlist
             df = f['transactions']
             i = len(df)
+            if(not amount):
+                try:
+                    amount,coin = data.item_metadata(item)
+                except e:
+                    print("{}\n{}".format(item,e))
+            if(not amount):
+                return None
             df.loc[i] = [user,item,amount,coin,'pending',pd.datetime.now()]
             f['transactions'] = df
         return i
