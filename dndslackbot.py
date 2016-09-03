@@ -41,6 +41,7 @@ class loot:
         g += money['sp'] // 10
         s += "\nEffective value {:,}gp".format(g)
         return s
+
     def add_item(command,channel,member):
         """
         *ADD_ITEM*
@@ -48,6 +49,7 @@ class loot:
         Allows the DM or lootmaster to directly add an item to a player.
         """
         return "This isn't implemented yet."
+
     def alter_funds(command,channel,member):
         """
         *ALTER*
@@ -57,6 +59,7 @@ class loot:
         if(members[channel] != DM):
             return "*HEY! STOP THAT! YOU'RE NOT THE DM!*"
         return "This isn't implemented yet."
+
     def approve(command,channel,member):
         """
         *APPROVE*
@@ -80,6 +83,7 @@ class loot:
         elif(len(com)>3):
             return loot._transaction("approved",id=com[1],amount=com[2],coin=com[3])
         return loot._transaction('approved',id=com[1])
+
     def deny(command,channel,member):
         """
         *DENY*
@@ -92,6 +96,7 @@ class loot:
         if (len(com) < 2):
             return "ID of transaction required."
         return loot._transaction('denied',id=com[1])
+
     def balance(command,channel,member,*args,**kwargs):
         '''
         *BALANCE*
@@ -109,6 +114,7 @@ class loot:
                 else:
                     return loot.balance.__doc__
         return loot._balance(user)
+
     def purchase(command,channel,user,*args,**kwargs):
         """
         *PURCHASE*
@@ -119,6 +125,7 @@ class loot:
         item = command.split(sep=None,maxsplit=1)[1]
         amount, coin = data.item_metadata(item)
         return loot._transaction('purchase',user=user,item=item,amount=amount,coin=coin)
+
     def sell(command,channel,user,*args,**kwargs):
         """
         *SELL*
@@ -131,6 +138,7 @@ class loot:
         amount, coin = data.item_metadata(item)
         amount = amount * 0.5
         return loot._transaction('sell',user=user,item=item,amount=amount,coin=coin)
+
     def help(command,channel,user,*args,**kwargs):
         """
         Kinda redundant to call help on help, don't you think?
@@ -146,6 +154,7 @@ class loot:
         response += ', '.join([c for c in dir(loot) if not c.startswith("_")])
         response += "\nType *help* followed by one of the commands above to get more info."
         return response
+
     def _transaction(transaction,user=None,item=None,id=None,amount=None,coin='gp',*args,**kwargs):
         '''
         *Transaction*
@@ -155,7 +164,7 @@ class loot:
             id = data.add_transaction(user,item)
             message = """
             *APPROVAL NEEDED*
-            {} wants to {}: {} for {:,}{}. Type @lootbot *approve* or *deny* {}
+            {} wants to {}: {} for {:,}{}. Type `@lootbot approve` or `@lootbot deny` {} to approve or deny the transaction.
             """.format(user,transaction,item,id,amount,coin)
             c = ''.join([k for k,v in members if v == DM])
             slack_client.api_call("chat.postMessage", channel=c,
