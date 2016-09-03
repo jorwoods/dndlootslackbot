@@ -13,6 +13,10 @@ AT_BOT = "<@" + BOT_ID + ">"
 im_list = {}
 members = {}
 
+# TODO:
+# - Finish transaction handling
+# - Add wishlist functionality
+
 
 @contextmanager
 def retrieve():
@@ -31,11 +35,11 @@ class loot:
         """
         money = data.get_balance(user)
         s = "Balance for *{}*\n{:,}gp  {:,}sp  {:,}cp".format(user,
-            int(money['gp']),int(money['sp']),int(money['cp']))
+            money['gp'],money['sp'],money['cp'])
         g = money['gp']
         g += money['cp'] // 100
         g += money['sp'] // 10
-        s += "\nEffective value {:,}gp".format(int(g))
+        s += "\nEffective value {:,}gp".format(g)
         return s
     def add_item(command,channel,member):
         """
@@ -57,13 +61,13 @@ class loot:
         """
         *APPROVE*
         Allows the DM to approve a transaction:
-        *@lootbot: approve* _id_
+        `@lootbot approve` _id_
 
         Optionally, the DM can override the amount with:
-        *@lootbot: approve* _id_ _amount_ 
+        `@lootbot approve` _id_ _amount_ 
 
         If the DM chooses, he can also override the default denomination of gp with:
-        *@lootbot: approve* _id_ _amount_ _denomination_
+        `@lootbot approve` _id_ _amount_ _denomination_
         
         """
         if(members[channel] != DM):
@@ -80,7 +84,7 @@ class loot:
         """
         *DENY*
         Allows the DM to deny a transaction:
-        *@lootbot: deny* _id_
+        `@lootbot deny` _id_
         """
         if(members[channel] != DM):
             return "*HEY! STOP THAT! YOU'RE NOT THE DM!*"
@@ -94,7 +98,7 @@ class loot:
         Prints out the amount of money available for use by the player.
 
         The DM and lootmaster can check the loot of any player. The syntax for this is 
-        *@lootbot: balance* _user_
+        `@lootbot balance` _user_
         '''
         user = members[member]
         if((user == DM or user == lootmaster)):
@@ -108,7 +112,9 @@ class loot:
     def purchase(command,channel,user,*args,**kwargs):
         """
         *PURCHASE*
-        Allows a user to purchase an item and have the funds deducted from their balance.
+        Allows a user to purchase an item and have the funds deducted from their balance. This only adds an item to the transaction list awaiting DM approval.
+
+        `@lootbot purchase` _item name_
         """
         item = command.split(sep=None,maxsplit=1)[1]
         amount, coin = data.item_metadata(item)
@@ -116,7 +122,10 @@ class loot:
     def sell(command,channel,user,*args,**kwargs):
         """
         *SELL*
-        Allows a user to sell an item and have the funds added to their balance.
+        Allows a user to sell an item and have the funds added to their balance. This only adds an item to the transaction list awaiting DM approval.
+
+        Default:
+        `@lootbot sell` _item name_
         """
         item = command.split(sep=None,maxsplit=1)[1]
         amount, coin = data.item_metadata(item)
@@ -146,7 +155,7 @@ class loot:
             id = data.add_transaction(user,item)
             message = """
             *APPROVAL NEEDED*
-            {} wants to {}: {} for {:,}{}. Type @lootbot: *approve* or *deny* {}
+            {} wants to {}: {} for {:,}{}. Type @lootbot *approve* or *deny* {}
             """.format(user,transaction,item,id,amount,coin)
             c = ''.join([k for k,v in members if v == DM])
             slack_client.api_call("chat.postMessage", channel=c,
@@ -194,7 +203,7 @@ class data:
             filtered = df[df['player'] == user]
             group = filtered[['amount','coin']].groupby('coin').sum()
             for i in group.index:
-                coins[i] = group['amount'][i]
+                coins[i] = int(group['amount'][i])
         return coins
 
     def add_transaction(user,item,amount):
@@ -256,7 +265,7 @@ def handle_command(command, channel, user):
         are valid commands. If so, then acts on the commands. If not,
         returns back what it needs for clarification.
     """
-    response = "Not sure what you mean. Use the *help* command to find other commands."
+    response = "Not sure what you mean. Try using the `@lootbot help` command to find other commands."
     if(len(command) > 0):
         com = command.lower().split()[0]
     if (len(user) > 0):
